@@ -25,6 +25,7 @@ _C.MODEL = CN()
 _C.MODEL.LOAD_PROPOSALS = False
 _C.MODEL.MASK_ON = False
 _C.MODEL.KEYPOINT_ON = False
+_C.MODEL.TEXTFUSENET_MUTIL_PATH_FUSE_ON = False
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN"
 
@@ -299,7 +300,7 @@ _C.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (10.0, 10.0, 5.0, 5.0)
 # The transition point from L1 to L2 loss. Set to 0.0 to make the loss simply L1.
 _C.MODEL.ROI_BOX_HEAD.SMOOTH_L1_BETA = 0.0
 _C.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION = 14
-_C.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO = 0
+_C.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO = 2 # 0 -> 2 for textfusenet
 # Type of pooling operation applied to the incoming feature map for each RoI
 _C.MODEL.ROI_BOX_HEAD.POOLER_TYPE = "ROIAlignV2"
 
@@ -336,7 +337,7 @@ _C.MODEL.ROI_BOX_CASCADE_HEAD.IOUS = (0.5, 0.6, 0.7)
 _C.MODEL.ROI_MASK_HEAD = CN()
 _C.MODEL.ROI_MASK_HEAD.NAME = "MaskRCNNConvUpsampleHead"
 _C.MODEL.ROI_MASK_HEAD.POOLER_RESOLUTION = 14
-_C.MODEL.ROI_MASK_HEAD.POOLER_SAMPLING_RATIO = 0
+_C.MODEL.ROI_MASK_HEAD.POOLER_SAMPLING_RATIO = 2 # 0 -> 2 for textfusenet
 _C.MODEL.ROI_MASK_HEAD.NUM_CONV = 0  # The number of convs in the mask head
 _C.MODEL.ROI_MASK_HEAD.CONV_DIM = 256
 # Normalization method for the convolution layers.
@@ -382,6 +383,25 @@ _C.MODEL.ROI_KEYPOINT_HEAD.NORMALIZE_LOSS_BY_VISIBLE_KEYPOINTS = True
 _C.MODEL.ROI_KEYPOINT_HEAD.LOSS_WEIGHT = 1.0
 # Type of pooling operation applied to the incoming feature map for each RoI
 _C.MODEL.ROI_KEYPOINT_HEAD.POOLER_TYPE = "ROIAlignV2"
+
+# ---------------------------------------------------------------------------- #
+# TextFuseNet Seg Head
+# ---------------------------------------------------------------------------- #
+_C.MODEL.TEXTFUSENET_SEG_HEAD = CN()
+_C.MODEL.TEXTFUSENET_SEG_HEAD.CHANNELS = 256
+# the num of fpn features used to fuse
+_C.MODEL.TEXTFUSENET_SEG_HEAD.NUM_FPN_FEATURES = 4
+# the num of conv3x3 used to extract fused features
+_C.MODEL.TEXTFUSENET_SEG_HEAD.NUM_CONV3 = 4
+# the num of segmentic classes 
+_C.MODEL.TEXTFUSENET_SEG_HEAD.NUM_CLASSES =2
+
+_C.MODEL.TEXTFUSENET_SEG_HEAD.POOLER_RESOLUTION = 14
+_C.MODEL.TEXTFUSENET_SEG_HEAD.SAMPLING_RATIO = 2
+_C.MODEL.TEXTFUSENET_SEG_HEAD.POOLER_TYPE = "ROIAlignV2"
+# 0->0.25, 1->0.125, 2->0.0625, 3->0.03125
+_C.MODEL.TEXTFUSENET_SEG_HEAD.FPN_FEATURES_FUSED_LEVEL = 2
+_C.MODEL.TEXTFUSENET_SEG_HEAD.POOLER_SCALES = (0.0625,)
 
 # ---------------------------------------------------------------------------- #
 # Semantic Segmentation Head
