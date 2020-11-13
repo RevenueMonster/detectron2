@@ -397,6 +397,11 @@ class Visualizer:
             )
             alpha = 0.3
 
+        # get polygons, for textfusenet
+        polygon_list = []
+        for mask in masks:
+            polygon_list.append(mask.polygons)
+
         self.overlay_instances(
             masks=masks,
             boxes=boxes,
@@ -405,7 +410,7 @@ class Visualizer:
             assigned_colors=colors,
             alpha=alpha,
         )
-        return self.output
+        return self.output, polygon_list
 
     def draw_sem_seg(self, sem_seg, area_threshold=None, alpha=0.8):
         """
