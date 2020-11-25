@@ -133,7 +133,7 @@ class TestInstances(unittest.TestCase):
             x.proposal_boxes = Boxes(box_tensors)
             self.assertTrue(script_module(x))
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
+    @unittest.skipIf(TORCH_VERSION < (1, 8), "Insufficient pytorch version")
     def test_script_to(self):
         class f(torch.nn.Module):
             def forward(self, x: Instances):
