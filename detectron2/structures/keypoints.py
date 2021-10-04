@@ -4,6 +4,17 @@ from typing import Any, List, Tuple, Union
 import torch
 from torch.nn import functional as F
 
+from detectron2.utils.env import TORCH_VERSION
+
+if TORCH_VERSION < (1, 8):
+
+    def script_if_tracing(fn):
+        return fn
+
+
+else:
+    script_if_tracing = torch.jit.script_if_tracing
+
 
 class Keypoints:
     """
@@ -12,6 +23,7 @@ class Keypoints:
     (N, K, 3) where N is the number of instances and K is the number of keypoints per instance.
 
     The visibility flag follows the COCO format and must be one of three integers:
+
     * v=0: not labeled (in which case x=y=0)
     * v=1: labeled but not visible
     * v=2: labeled and visible
@@ -79,6 +91,26 @@ class Keypoints:
         s += "num_instances={})".format(len(self.tensor))
         return s
 
+    @staticmethod
+    def cat(keypoints_list: List["Keypoints"]) -> "Keypoints":
+        """
+        Concatenates a list of Keypoints into a single Keypoints
+
+        Arguments:
+            keypoints_list (list[Keypoints])
+
+        Returns:
+            Keypoints: the concatenated Keypoints
+        """
+        assert isinstance(keypoints_list, (list, tuple))
+        assert len(keypoints_list) > 0
+        assert all(isinstance(keypoints, Keypoints) for keypoints in keypoints_list)
+
+        cat_kpts = type(keypoints_list[0])(
+            torch.cat([kpts.tensor for kpts in keypoints_list], dim=0)
+        )
+        return cat_kpts
+
 
 # TODO make this nicer, this is a direct translation from C2 (but removing the inner loop)
 def _keypoints_to_heatmap(
@@ -140,6 +172,7 @@ def _keypoints_to_heatmap(
     return heatmaps, valid
 
 
+@script_if_tracing
 def heatmaps_to_keypoints(maps: torch.Tensor, rois: torch.Tensor) -> torch.Tensor:
     """
     Extract predicted keypoint locations from heatmaps.
@@ -158,7 +191,7 @@ def heatmaps_to_keypoints(maps: torch.Tensor, rois: torch.Tensor) -> torch.Tenso
     Heckbert 1990: c = d + 0.5, where d is a discrete coordinate and c is a continuous coordinate.
     """
     # The decorator use of torch.no_grad() was not supported by torchscript.
-    # https://github.com/pytorch/pytorch/pull/41371
+    # https://github.com/pytorch/pytorch/issues/44768
     maps = maps.detach()
     rois = rois.detach()
 

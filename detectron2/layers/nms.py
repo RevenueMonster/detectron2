@@ -93,9 +93,7 @@ def nms_rotated(boxes, scores, iou_threshold):
         keep (Tensor): int64 tensor with the indices of the elements that have been kept
         by Rotated NMS, sorted in decreasing order of scores
     """
-    from detectron2 import _C
-
-    return _C.nms_rotated(boxes, scores, iou_threshold)
+    return torch.ops.detectron2.nms_rotated(boxes, scores, iou_threshold)
 
 
 # Note: this function (batched_nms_rotated) might be moved into

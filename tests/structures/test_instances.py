@@ -6,6 +6,7 @@ from torch import Tensor
 from detectron2.export.torchscript import patch_instances
 from detectron2.structures import Boxes, Instances
 from detectron2.utils.env import TORCH_VERSION
+from detectron2.utils.testing import convert_scripted_instances
 
 
 class TestInstances(unittest.TestCase):
@@ -23,7 +24,6 @@ class TestInstances(unittest.TestCase):
         self.assertRaises(IndexError, lambda: instances[len(instances)])
         self.assertRaises(IndexError, lambda: instances[-len(instances) - 1])
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
     def test_script_new_fields(self):
         def get_mask(x: Instances) -> torch.Tensor:
             return x.mask
@@ -72,7 +72,6 @@ class TestInstances(unittest.TestCase):
             x.proposal_boxes = Boxes(torch.rand(3, 4))
             scripted_g2(x)  # it should accept the new Instances object and run successfully
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
     def test_script_access_fields(self):
         class f(torch.nn.Module):
             def forward(self, x: Instances):
@@ -84,7 +83,6 @@ class TestInstances(unittest.TestCase):
         with patch_instances(fields):
             torch.jit.script(f())
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
     def test_script_len(self):
         class f(torch.nn.Module):
             def forward(self, x: Instances):
@@ -116,7 +114,6 @@ class TestInstances(unittest.TestCase):
             length = script_module(x)
             self.assertEqual(length, 1)
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
     def test_script_has(self):
         class f(torch.nn.Module):
             def forward(self, x: Instances):
@@ -151,7 +148,6 @@ class TestInstances(unittest.TestCase):
             x.a = box_tensors
             script_module(x)
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
     def test_script_getitem(self):
         class f(torch.nn.Module):
             def forward(self, x: Instances, idx):
@@ -173,7 +169,6 @@ class TestInstances(unittest.TestCase):
             )
             self.assertTrue(torch.equal(out.a, out_scripted.a))
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
     def test_from_to_instances(self):
         orig = Instances((30, 30))
         orig.proposal_boxes = Boxes(torch.rand(3, 4))
@@ -182,7 +177,7 @@ class TestInstances(unittest.TestCase):
         with patch_instances(fields) as NewInstances:
             # convert to NewInstances and back
             new1 = NewInstances.from_instances(orig)
-            new2 = new1.to_instances()
+            new2 = convert_scripted_instances(new1)
         self.assertTrue(torch.equal(orig.proposal_boxes.tensor, new1.proposal_boxes.tensor))
         self.assertTrue(torch.equal(orig.proposal_boxes.tensor, new2.proposal_boxes.tensor))
 

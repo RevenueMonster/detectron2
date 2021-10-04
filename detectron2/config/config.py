@@ -19,6 +19,14 @@ class CfgNode(_CfgNode):
        the content of the file.
     2. Support config versioning.
        When attempting to merge an old config, it will convert the old config automatically.
+
+    .. automethod:: clone
+    .. automethod:: freeze
+    .. automethod:: defrost
+    .. automethod:: is_frozen
+    .. automethod:: load_yaml_with_base
+    .. automethod:: merge_from_list
+    .. automethod:: merge_from_other_cfg
     """
 
     @classmethod
@@ -27,6 +35,13 @@ class CfgNode(_CfgNode):
 
     # Note that the default value of allow_unsafe is changed to True
     def merge_from_file(self, cfg_filename: str, allow_unsafe: bool = True) -> None:
+        """
+        Load content from the given config file and merge it into self.
+
+        Args:
+            cfg_filename: config filename
+            allow_unsafe: allow unsafe yaml syntax
+        """
         assert PathManager.isfile(cfg_filename), f"Config file '{cfg_filename}' does not exist!"
         loaded_cfg = self.load_yaml_with_base(cfg_filename, allow_unsafe=allow_unsafe)
         loaded_cfg = type(self)(loaded_cfg)
@@ -152,19 +167,12 @@ def configurable(init_func=None, *, from_config=None):
             as its first argument.
     """
 
-    def check_docstring(func):
-        if func.__module__.startswith("detectron2."):
-            assert (
-                func.__doc__ is not None and "experimental" in func.__doc__.lower()
-            ), f"configurable {func} should be marked experimental"
-
     if init_func is not None:
         assert (
             inspect.isfunction(init_func)
             and from_config is None
             and init_func.__name__ == "__init__"
         ), "Incorrect use of @configurable. Check API documentation for examples."
-        check_docstring(init_func)
 
         @functools.wraps(init_func)
         def wrapped(self, *args, **kwargs):
@@ -193,8 +201,6 @@ def configurable(init_func=None, *, from_config=None):
         ), "from_config argument of configurable must be a function!"
 
         def wrapper(orig_func):
-            check_docstring(orig_func)
-
             @functools.wraps(orig_func)
             def wrapped(*args, **kwargs):
                 if _called_with_cfg(*args, **kwargs):
@@ -203,6 +209,7 @@ def configurable(init_func=None, *, from_config=None):
                 else:
                     return orig_func(*args, **kwargs)
 
+            wrapped.from_config = from_config
             return wrapped
 
         return wrapper
@@ -217,9 +224,11 @@ def _get_args_from_config(from_config_func, *args, **kwargs):
     """
     signature = inspect.signature(from_config_func)
     if list(signature.parameters.keys())[0] != "cfg":
-        raise TypeError(
-            f"{from_config_func.__self__}.from_config must take 'cfg' as the first argument!"
-        )
+        if inspect.isfunction(from_config_func):
+            name = from_config_func.__name__
+        else:
+            name = f"{from_config_func.__self__}.from_config"
+        raise TypeError(f"{name} must take 'cfg' as the first argument!")
     support_var_arg = any(
         param.kind in [param.VAR_POSITIONAL, param.VAR_KEYWORD]
         for param in signature.parameters.values()
@@ -245,9 +254,11 @@ def _called_with_cfg(*args, **kwargs):
         bool: whether the arguments contain CfgNode and should be considered
             forwarded to from_config.
     """
-    if len(args) and isinstance(args[0], _CfgNode):
+    from omegaconf import DictConfig
+
+    if len(args) and isinstance(args[0], (_CfgNode, DictConfig)):
         return True
-    if isinstance(kwargs.pop("cfg", None), _CfgNode):
+    if isinstance(kwargs.pop("cfg", None), (_CfgNode, DictConfig)):
         return True
     # `from_config`'s first argument is forced to be "cfg".
     # So the above check covers all cases.

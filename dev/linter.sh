@@ -4,9 +4,9 @@
 # Run this script at project root by "./dev/linter.sh" before you commit
 
 {
-  black --version | grep -E "20.8b1" > /dev/null
+  black --version | grep -E "21\." > /dev/null
 } || {
-  echo "Linter requires 'black==20.8b1' !"
+  echo "Linter requires 'black==21.*' !"
   exit 1
 }
 

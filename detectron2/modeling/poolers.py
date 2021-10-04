@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torchvision.ops import RoIPool
 
-from detectron2.layers import ROIAlign, ROIAlignRotated, cat, nonzero_tuple
+from detectron2.layers import ROIAlign, ROIAlignRotated, cat, nonzero_tuple, shapes_to_tensor
 from detectron2.structures import Boxes
 
 """
@@ -58,13 +58,6 @@ def assign_boxes_to_levels(
     return level_assignments.to(torch.int64) - min_level
 
 
-def _fmt_box_list(box_tensor, batch_index: int):
-    repeated_index = torch.full_like(
-        box_tensor[:, :1], batch_index, dtype=box_tensor.dtype, device=box_tensor.device
-    )
-    return cat((repeated_index, box_tensor), dim=1)
-
-
 def convert_boxes_to_pooler_format(box_lists: List[Boxes]):
     """
     Convert all boxes in `box_lists` to the low-level format used by ROI pooling ops
@@ -88,11 +81,13 @@ def convert_boxes_to_pooler_format(box_lists: List[Boxes]):
             where batch index is the index in [0, N) identifying which batch image the
             rotated box (x_ctr, y_ctr, width, height, angle_degrees) comes from.
     """
-    pooler_fmt_boxes = cat(
-        [_fmt_box_list(box_list.tensor, i) for i, box_list in enumerate(box_lists)], dim=0
+    boxes = torch.cat([x.tensor for x in box_lists], dim=0)
+    # __len__ returns Tensor in tracing.
+    sizes = shapes_to_tensor([x.__len__() for x in box_lists], device=boxes.device)
+    indices = torch.repeat_interleave(
+        torch.arange(len(box_lists), dtype=boxes.dtype, device=boxes.device), sizes
     )
-
-    return pooler_fmt_boxes
+    return cat([indices[:, None], boxes], dim=1)
 
 
 class ROIPooler(nn.Module):
@@ -116,7 +111,7 @@ class ROIPooler(nn.Module):
                 e.g., 14 x 14. If tuple or list is given, the length must be 2.
             scales (list[float]): The scale for each low-level pooling op relative to
                 the input image. For a feature map with stride s relative to the input
-                image, scale is defined as a 1 / s. The stride must be power of 2.
+                image, scale is defined as 1/s. The stride must be power of 2.
                 When there are multiple scales, they must form a pyramid, i.e. they must be
                 a monotically decreasing geometric sequence with a factor of 1/2.
             sampling_ratio (int): The `sampling_ratio` parameter for the ROIAlign op.
@@ -244,6 +239,7 @@ class ROIPooler(nn.Module):
         for level, pooler in enumerate(self.level_poolers):
             inds = nonzero_tuple(level_assignments == level)[0]
             pooler_fmt_boxes_level = pooler_fmt_boxes[inds]
-            output[inds] = pooler(x[level], pooler_fmt_boxes_level)
+            # Use index_put_ instead of advance indexing, to avoid pytorch/issues/49852
+            output.index_put_((inds,), pooler(x[level], pooler_fmt_boxes_level))
 
         return output

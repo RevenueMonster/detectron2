@@ -8,11 +8,31 @@ These can be removed once https://github.com/pytorch/pytorch/issues/12013
 is implemented
 """
 
-from typing import List
+from typing import List, Optional
 import torch
 from torch.nn import functional as F
 
-from detectron2.utils.env import TORCH_VERSION
+
+def shapes_to_tensor(x: List[int], device: Optional[torch.device] = None) -> torch.Tensor:
+    """
+    Turn a list of integer scalars or integer Tensor scalars into a vector,
+    in a way that's both traceable and scriptable.
+
+    In tracing, `x` should be a list of scalar Tensor, so the output can trace to the inputs.
+    In scripting or eager, `x` should be a list of int.
+    """
+    if torch.jit.is_scripting():
+        return torch.as_tensor(x, device=device)
+    if torch.jit.is_tracing():
+        assert all(
+            [isinstance(t, torch.Tensor) for t in x]
+        ), "Shape should be tensor during tracing!"
+        # as_tensor should not be used in tracing because it records a constant
+        ret = torch.stack(x)
+        if ret.device != device:  # avoid recording a hard-coded device if not necessary
+            ret = ret.to(device=device)
+        return ret
+    return torch.as_tensor(x, device=device)
 
 
 def cat(tensors: List[torch.Tensor], dim: int = 0):
@@ -23,6 +43,16 @@ def cat(tensors: List[torch.Tensor], dim: int = 0):
     if len(tensors) == 1:
         return tensors[0]
     return torch.cat(tensors, dim)
+
+
+def cross_entropy(input, target, *, reduction="mean", **kwargs):
+    """
+    Same as `torch.nn.functional.cross_entropy`, but returns 0 (instead of nan)
+    for empty inputs.
+    """
+    if target.numel() == 0 and reduction == "mean":
+        return input.sum() * 0.0  # connect the gradient
+    return F.cross_entropy(input, target, reduction=reduction, **kwargs)
 
 
 class _NewEmptyTensorOp(torch.autograd.Function):
@@ -86,33 +116,7 @@ class Conv2d(torch.nn.Conv2d):
 ConvTranspose2d = torch.nn.ConvTranspose2d
 BatchNorm2d = torch.nn.BatchNorm2d
 interpolate = F.interpolate
-
-
-if TORCH_VERSION > (1, 5):
-    Linear = torch.nn.Linear
-else:
-
-    class Linear(torch.nn.Linear):
-        """
-        A wrapper around :class:`torch.nn.Linear` to support empty inputs and more features.
-        Because of https://github.com/pytorch/pytorch/issues/34202
-        """
-
-        def forward(self, x):
-            if x.numel() == 0:
-                output_shape = [x.shape[0], self.weight.shape[0]]
-
-                empty = _NewEmptyTensorOp.apply(x, output_shape)
-                if self.training:
-                    # This is to make DDP happy.
-                    # DDP expects all workers to have gradient w.r.t the same set of parameters.
-                    _dummy = sum(x.view(-1)[0] for x in self.parameters()) * 0.0
-                    return empty + _dummy
-                else:
-                    return empty
-
-            x = super().forward(x)
-            return x
+Linear = torch.nn.Linear
 
 
 def nonzero_tuple(x):

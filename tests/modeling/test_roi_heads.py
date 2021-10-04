@@ -148,7 +148,6 @@ class ROIHeadsTest(unittest.TestCase):
             ),
         )
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
     def test_box_head_scriptability(self):
         input_shape = ShapeSpec(channels=1024, height=14, width=14)
         box_features = torch.randn(4, 1024, 14, 14)
@@ -190,7 +189,7 @@ class ROIHeadsTest(unittest.TestCase):
             script_outputs = sciript_mask_head(mask_features, [pred_instance0, pred_instance1])
 
         for origin_ins, script_ins in zip(origin_outputs, script_outputs):
-            assert_instances_allclose(origin_ins, script_ins.to_instances(), rtol=0)
+            assert_instances_allclose(origin_ins, script_ins, rtol=0)
 
     @unittest.skipIf(TORCH_VERSION < (1, 8), "Insufficient pytorch version")
     def test_keypoint_head_scriptability(self):
@@ -226,7 +225,7 @@ class ROIHeadsTest(unittest.TestCase):
             )
 
         for origin_ins, script_ins in zip(origin_outputs, script_outputs):
-            assert_instances_allclose(origin_ins, script_ins.to_instances(), rtol=0)
+            assert_instances_allclose(origin_ins, script_ins, rtol=0)
 
     @unittest.skipIf(TORCH_VERSION < (1, 8), "Insufficient pytorch version")
     def test_StandardROIHeads_scriptability(self):
@@ -278,9 +277,9 @@ class ROIHeadsTest(unittest.TestCase):
             scripted_pred_instances, _ = scripted_rot_heads(images, features, proposals)
 
         for instance, scripted_instance in zip(pred_instances, scripted_pred_instances):
-            assert_instances_allclose(instance, scripted_instance.to_instances(), rtol=0)
+            assert_instances_allclose(instance, scripted_instance, rtol=0)
 
-    @unittest.skipIf(TORCH_VERSION < (1, 7), "Insufficient pytorch version")
+    @unittest.skipIf(TORCH_VERSION < (1, 8), "Insufficient pytorch version")
     def test_PointRend_mask_head_tracing(self):
         cfg = model_zoo.get_config("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_1x.yaml")
         point_rend.add_pointrend_config(cfg)

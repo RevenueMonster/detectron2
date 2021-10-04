@@ -60,6 +60,9 @@ class TestVisualizer(unittest.TestCase):
             "image_id": 1,
             "width": 512,
         }
+        v = Visualizer(img)
+        v.draw_dataset_dict(dic)
+
         v = Visualizer(img, self.metadata)
         v.draw_dataset_dict(dic)
 
@@ -118,6 +121,9 @@ class TestVisualizer(unittest.TestCase):
         inst.pred_boxes = torch.from_numpy(boxes)
         inst.pred_masks = torch.from_numpy(np.asarray(masks))
 
+        v = Visualizer(img)
+        v.draw_instance_predictions(inst)
+
         v = Visualizer(img, self.metadata)
         v.draw_instance_predictions(inst)
 
@@ -131,6 +137,13 @@ class TestVisualizer(unittest.TestCase):
 
         v = Visualizer(img, self.metadata, instance_mode=ColorMode.IMAGE_BW)
         v.draw_instance_predictions(inst)
+
+        # check that output is grayscale
+        inst = inst[:0]
+        v = Visualizer(img, self.metadata, instance_mode=ColorMode.IMAGE_BW)
+        output = v.draw_instance_predictions(inst).get_image()
+        self.assertTrue(np.allclose(output[:, :, 0], output[:, :, 1]))
+        self.assertTrue(np.allclose(output[:, :, 0], output[:, :, 2]))
 
     def test_draw_empty_mask_predictions(self):
         img, boxes, _, _, masks = self._random_data()

@@ -70,7 +70,7 @@ class Trainer(DefaultTrainer):
         evaluator_list = []
         evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
         if evaluator_type == "lvis":
-            return LVISEvaluator(dataset_name, cfg, True, output_folder)
+            return LVISEvaluator(dataset_name, output_dir=output_folder)
         if evaluator_type == "coco":
             return COCOEvaluator(dataset_name, output_dir=output_folder)
         if evaluator_type == "sem_seg":
@@ -81,12 +81,12 @@ class Trainer(DefaultTrainer):
             )
         if evaluator_type == "cityscapes_instance":
             assert (
-                torch.cuda.device_count() >= comm.get_rank()
+                torch.cuda.device_count() > comm.get_rank()
             ), "CityscapesEvaluator currently do not work with multiple machines."
             return CityscapesInstanceEvaluator(dataset_name)
         if evaluator_type == "cityscapes_sem_seg":
             assert (
-                torch.cuda.device_count() >= comm.get_rank()
+                torch.cuda.device_count() > comm.get_rank()
             ), "CityscapesEvaluator currently do not work with multiple machines."
             return CityscapesSemSegEvaluator(dataset_name)
         if len(evaluator_list) == 0:
